@@ -31,6 +31,7 @@ export const useUserStore = create<UserState>()(
         openai: '',
         anthropic: '',
         google: '',
+        azureEndpoint: '',
       },
       keyModalOpen: false,
       authModalOpen: false,

@@ -147,6 +147,7 @@ export interface UserApiKeys {
   openai?: string;
   anthropic?: string;
   google?: string;
+  azureEndpoint?: string;
 }
 
 export interface ArenaEntry {

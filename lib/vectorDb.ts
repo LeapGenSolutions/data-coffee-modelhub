@@ -127,15 +127,17 @@ export function computeBM25Scores(query: string, chunks: DocumentChunk[], k1 = 1
  * Tries OpenAI / Microsoft Foundry text-embedding-3-small endpoint first;
  * falls back to high-fidelity deterministic vector hashing when offline or without API key.
  */
-export async function generateEmbedding(text: string, apiKey?: string): Promise<number[]> {
+export async function generateEmbedding(text: string, apiKey?: string, customEndpoint?: string): Promise<number[]> {
   const clean = text.slice(0, 8000);
 
   if (apiKey) {
     try {
       let endpoint = 'https://api.openai.com/v1/embeddings';
-      if (process.env.AZURE_OPENAI_ENDPOINT) {
+      const azureEndpoint = customEndpoint || process.env.AZURE_OPENAI_ENDPOINT || (!apiKey.startsWith('sk-') ? 'https://data-coffee-persona.openai.azure.com' : undefined);
+
+      if (azureEndpoint) {
         // Strip trailing slash and any trailing /openai/v1 paths for Azure OpenAI
-        const baseUrl = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
+        const baseUrl = azureEndpoint.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
         endpoint = `${baseUrl}/openai/deployments/text-embedding-3-small/embeddings?api-version=2024-02-01`;
       }
 
@@ -168,10 +170,10 @@ export async function generateEmbedding(text: string, apiKey?: string): Promise<
   return generateDeterministicVector(clean, VECTOR_DIMENSION);
 }
 
-export async function embedChunks(chunks: DocumentChunk[], apiKey?: string): Promise<DocumentChunk[]> {
+export async function embedChunks(chunks: DocumentChunk[], apiKey?: string, customEndpoint?: string): Promise<DocumentChunk[]> {
   const embeddedChunks: DocumentChunk[] = [];
   for (const chunk of chunks) {
-    const embedding = await generateEmbedding(chunk.content, apiKey);
+    const embedding = await generateEmbedding(chunk.content, apiKey, customEndpoint);
     embeddedChunks.push({
       ...chunk,
       embedding,
@@ -211,7 +213,8 @@ export async function searchHybridSemanticDocuments(
   topK = 5,
   denseWeight = 0.6,
   bm25Weight = 0.4,
-  rrfK = 60
+  rrfK = 60,
+  customEndpoint?: string
 ): Promise<HybridSearchResult[]> {
   if (!query.trim() || !documents.length) return [];
 
@@ -226,8 +229,8 @@ export async function searchHybridSemanticDocuments(
   if (allChunks.length === 0) return [];
 
   // 1. Dense Vector Scoring
-  const queryVec = await generateEmbedding(query, apiKey);
-  const embedded = await embedChunks(allChunks, apiKey);
+  const queryVec = await generateEmbedding(query, apiKey, customEndpoint);
+  const embedded = await embedChunks(allChunks, apiKey, customEndpoint);
   const denseScored = embedded.map((chunk) => ({
     chunk,
     denseSimilarity: chunk.embedding ? cosineSimilarity(queryVec, chunk.embedding) : 0,
@@ -354,9 +357,10 @@ export async function searchSemanticDocuments(
   query: string,
   documents: { name: string; content?: string }[],
   apiKey?: string,
-  topK = 4
+  topK = 4,
+  customEndpoint?: string
 ): Promise<VectorSearchResult[]> {
-  const hybridCandidates = await searchHybridSemanticDocuments(query, documents, apiKey, topK * 3);
+  const hybridCandidates = await searchHybridSemanticDocuments(query, documents, apiKey, topK * 3, 0.6, 0.4, 60, customEndpoint);
   const reranked = rerankContextChunks(query, hybridCandidates, topK);
 
   return reranked.map((item) => ({

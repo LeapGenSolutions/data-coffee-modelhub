@@ -6,7 +6,7 @@ interface RequestPayload {
   model: string;
   chatId?: string;
   attachments?: { name: string; content?: string }[];
-  apiKeys?: { openai?: string; anthropic?: string; google?: string };
+  apiKeys?: { openai?: string; anthropic?: string; google?: string; azureEndpoint?: string };
   history?: { role: 'user' | 'assistant' | 'system'; content: string }[];
 }
 
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing model identifier' }, { status: 400 });
     }
 
-    const mapping = MODEL_MAPPINGS[modelId] || { provider: 'google', targetModel: 'gemini-2.5-flash' };
+    const mapping = MODEL_MAPPINGS[modelId] || { provider: 'azure', targetModel: 'gpt-4o' };
 
     // Resolve API keys (prioritizing user-provided BYOK keys, then environment variables)
     const openaiKey = (apiKeys.openai || process.env.OPENAI_API_KEY || '').trim();
@@ -44,11 +44,18 @@ export async function POST(req: NextRequest) {
       process.env.GOOGLE_API_KEY ||
       ''
     ).trim();
+    const azureEndpoint = (
+      apiKeys.azureEndpoint ||
+      process.env.AZURE_OPENAI_ENDPOINT ||
+      'https://data-coffee-persona.openai.azure.com'
+    ).trim();
+
+    const isAzureKey = !openaiKey.startsWith('sk-');
 
     // Build vector RAG context with attached documents
     let combinedPrompt = prompt;
     if (attachments.length > 0) {
-      const ragResults = await searchSemanticDocuments(prompt, attachments, openaiKey, 4);
+      const ragResults = await searchSemanticDocuments(prompt, attachments, openaiKey, 4, isAzureKey ? azureEndpoint : undefined);
       if (ragResults.length > 0) {
         const { contextPrompt } = buildRagPromptContext(ragResults);
         combinedPrompt = `${contextPrompt}\n\nUser Question: ${prompt}`;
@@ -67,8 +74,8 @@ export async function POST(req: NextRequest) {
 
     /* ─── 2. OpenAI / Azure Microsoft Foundry Provider ─── */
     if ((mapping.provider === 'openai' || mapping.provider === 'azure') && openaiKey) {
-      if (process.env.AZURE_OPENAI_ENDPOINT && !openaiKey.startsWith('sk-')) {
-        return await streamAzureOpenAI(openaiKey, process.env.AZURE_OPENAI_ENDPOINT, mapping.targetModel, combinedPrompt, history);
+      if (isAzureKey || mapping.provider === 'azure') {
+        return await streamAzureOpenAI(openaiKey, azureEndpoint, mapping.targetModel, combinedPrompt, history, googleKey);
       }
       return await streamOpenAI(openaiKey, mapping.targetModel, combinedPrompt, history);
     }
@@ -79,12 +86,17 @@ export async function POST(req: NextRequest) {
     }
 
     /* ─── 4. Cross-Provider Fallback: Try configured providers before simulated fallback ─── */
+    if (mapping.provider === 'azure' || isAzureKey) {
+      if (openaiKey) {
+        return await streamAzureOpenAI(openaiKey, azureEndpoint, 'gpt-4o', combinedPrompt, history, googleKey);
+      }
+    }
     if (googleKey) {
       return await streamGoogleGemini(googleKey, 'gemini-2.5-flash', combinedPrompt, history);
     }
     if (openaiKey) {
-      if (process.env.AZURE_OPENAI_ENDPOINT && !openaiKey.startsWith('sk-')) {
-        return await streamAzureOpenAI(openaiKey, process.env.AZURE_OPENAI_ENDPOINT, 'gpt-4o', combinedPrompt, history);
+      if (isAzureKey) {
+        return await streamAzureOpenAI(openaiKey, azureEndpoint, 'gpt-4o', combinedPrompt, history, googleKey);
       }
       return await streamOpenAI(openaiKey, 'gpt-4o-mini', combinedPrompt, history);
     }
@@ -333,13 +345,20 @@ async function streamOpenAI(apiKey: string, model: string, prompt: string, histo
 /**
  * Azure OpenAI Chat Completions Streaming
  */
-async function streamAzureOpenAI(apiKey: string, azureEndpoint: string, model: string, prompt: string, history: any[]) {
+async function streamAzureOpenAI(
+  apiKey: string,
+  azureEndpoint: string,
+  model: string,
+  prompt: string,
+  history: any[],
+  googleKey?: string
+) {
   // Strip trailing slashes and /openai/v1 from endpoint to construct valid deployment URL
   const baseUrl = azureEndpoint.replace(/\/openai\/v1\/?$/, '').replace(/\/$/, '');
   const endpoint = `${baseUrl}/openai/deployments/${model}/chat/completions?api-version=2024-02-01`;
 
   const messages = [
-    { role: 'system', content: 'You are an expert AI assistant connected via Azure Microsoft Foundry.' },
+    { role: 'system', content: 'You are an expert AI assistant connected via Azure Microsoft Foundry. Ground your answers in provided workspace and RAG context.' },
     ...history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: prompt },
   ];
@@ -361,7 +380,8 @@ async function streamAzureOpenAI(apiKey: string, azureEndpoint: string, model: s
       if (res.status === 404) {
         // Azure resource only hosts text-embedding-3-small for RAG retrieval;
         // Delegate generation seamlessly to Gemini if available, or simulated RAG stream
-        const googleKey = (
+        const resolvedGoogleKey = (
+          googleKey ||
           process.env.GOOGLE_AI_API_KEY ||
           process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
           process.env.GEMINI_API_KEY ||
@@ -369,8 +389,8 @@ async function streamAzureOpenAI(apiKey: string, azureEndpoint: string, model: s
           ''
         ).trim();
 
-        if (googleKey) {
-          return await streamGoogleGemini(googleKey, 'gemini-2.5-flash', prompt, history);
+        if (resolvedGoogleKey) {
+          return await streamGoogleGemini(resolvedGoogleKey, 'gemini-2.5-flash', prompt, history);
         }
         return generateSimulatedStream(prompt, 'ms-foundry', []);
       }
