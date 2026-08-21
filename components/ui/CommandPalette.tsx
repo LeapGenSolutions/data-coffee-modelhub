@@ -63,17 +63,16 @@ export function CommandPalette() {
         setOpen(false);
       },
     },
-    // ─── BYOK DISABLED FOR DEMO ───
-    // {
-    //   id: 'act_keys',
-    //   label: 'Configure API Keys (BYOK - OpenAI, Anthropic, Gemini)',
-    //   category: 'Settings',
-    //   icon: KeyIcon,
-    //   perform: () => {
-    //     setKeyModalOpen(true);
-    //     setOpen(false);
-    //   },
-    // },
+    {
+      id: 'act_keys',
+      label: 'Configure API Keys (BYOK - Azure Foundry, OpenAI, Gemini)',
+      category: 'Settings',
+      icon: KeyIcon,
+      perform: () => {
+        setKeyModalOpen(true);
+        setOpen(false);
+      },
+    },
     {
       id: 'nav_arena',
       label: 'Go to Model Arena (Side-by-Side Benchmark)',

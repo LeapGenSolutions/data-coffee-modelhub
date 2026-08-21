@@ -33,14 +33,11 @@ export async function POST(req: NextRequest) {
 
     const mapping = MODEL_MAPPINGS[modelId] || { provider: 'google', targetModel: 'gemini-2.5-flash' };
 
-    // ─── BYOK DISABLED FOR DEMO — Using server-side env keys only ───
-    // When re-enabling BYOK, restore the apiKeys.* || process.env.* pattern below:
-    // const openaiKey = (apiKeys.openai || process.env.OPENAI_API_KEY || '').trim();
-    // const anthropicKey = (apiKeys.anthropic || process.env.ANTHROPIC_API_KEY || '').trim();
-    // const googleKey = (apiKeys.google || process.env.GOOGLE_AI_API_KEY || ...).trim();
-    const openaiKey = (process.env.OPENAI_API_KEY || '').trim();
-    const anthropicKey = (process.env.ANTHROPIC_API_KEY || '').trim();
+    // Resolve API keys (prioritizing user-provided BYOK keys, then environment variables)
+    const openaiKey = (apiKeys.openai || process.env.OPENAI_API_KEY || '').trim();
+    const anthropicKey = (apiKeys.anthropic || process.env.ANTHROPIC_API_KEY || '').trim();
     const googleKey = (
+      apiKeys.google ||
       process.env.GOOGLE_AI_API_KEY ||
       process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
       process.env.GEMINI_API_KEY ||
@@ -68,8 +65,11 @@ export async function POST(req: NextRequest) {
       return await streamGoogleGemini(googleKey, mapping.targetModel, combinedPrompt, history);
     }
 
-    /* ─── 2. OpenAI Provider ─── */
-    if (mapping.provider === 'openai' && openaiKey) {
+    /* ─── 2. OpenAI / Azure Microsoft Foundry Provider ─── */
+    if ((mapping.provider === 'openai' || mapping.provider === 'azure') && openaiKey) {
+      if (process.env.AZURE_OPENAI_ENDPOINT && !openaiKey.startsWith('sk-')) {
+        return await streamAzureOpenAI(openaiKey, process.env.AZURE_OPENAI_ENDPOINT, mapping.targetModel, combinedPrompt, history);
+      }
       return await streamOpenAI(openaiKey, mapping.targetModel, combinedPrompt, history);
     }
 
@@ -78,16 +78,14 @@ export async function POST(req: NextRequest) {
       return await streamAnthropic(anthropicKey, mapping.targetModel, combinedPrompt, history);
     }
 
-    /* ─── 4. Azure OpenAI Provider ─── */
-    if (mapping.provider === 'azure' && openaiKey && process.env.AZURE_OPENAI_ENDPOINT) {
-      return await streamAzureOpenAI(openaiKey, process.env.AZURE_OPENAI_ENDPOINT, mapping.targetModel, combinedPrompt, history);
-    }
-
-    /* ─── 4. Cross-Provider Fallback: Try Google if preferred provider has no key ─── */
+    /* ─── 4. Cross-Provider Fallback: Try configured providers before simulated fallback ─── */
     if (googleKey) {
       return await streamGoogleGemini(googleKey, 'gemini-2.5-flash', combinedPrompt, history);
     }
     if (openaiKey) {
+      if (process.env.AZURE_OPENAI_ENDPOINT && !openaiKey.startsWith('sk-')) {
+        return await streamAzureOpenAI(openaiKey, process.env.AZURE_OPENAI_ENDPOINT, 'gpt-4o', combinedPrompt, history);
+      }
       return await streamOpenAI(openaiKey, 'gpt-4o-mini', combinedPrompt, history);
     }
     if (anthropicKey) {

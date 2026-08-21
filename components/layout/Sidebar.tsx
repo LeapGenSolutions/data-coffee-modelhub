@@ -169,8 +169,7 @@ export function Sidebar() {
       {/* Spacer when not on Chat view */}
       {activeView !== 'chat' && activeView !== 'team-chats' && <div className="flex-1" />}
 
-      {/* ─── BYOK DISABLED FOR DEMO — re-enable by changing false to true ─── */}
-      {false && (
+      {/* BYOK API Key Button */}
       <div className="px-2 pb-1 border-t border-hub-border/50 pt-2">
         <button
           onClick={() => setKeyModalOpen(true)}
@@ -185,7 +184,6 @@ export function Sidebar() {
           </span>
         </button>
       </div>
-      )}
 
       {/* User Footer / Auth Profile Trigger */}
       <button
