@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DEMO_AUTH_ACCOUNTS, getAuthSession } from '../../../../lib/auth';
+import { DEMO_AUTH_ACCOUNTS, DEMO_AUTH_ENABLED, getAuthSession } from '../../../../lib/auth';
 
 /**
  * NextAuth.js v5 (Auth.js) App Router Route Handler
@@ -15,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ next
   }
 
   if (action === 'providers') {
+    if (!DEMO_AUTH_ENABLED) return NextResponse.json({});
     return NextResponse.json({
       google: {
         id: 'google',
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ next
   }
 
   if (action === 'csrf') {
-    return NextResponse.json({ csrfToken: `csrf_${Date.now()}` });
+    return NextResponse.json({ csrfToken: crypto.randomUUID() });
   }
 
   return NextResponse.json({ status: 'ok', route: action });
@@ -49,6 +50,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nex
   const action = resolvedParams.nextauth?.[0] || 'signin';
 
   try {
+    if (!DEMO_AUTH_ENABLED) {
+      return NextResponse.json(
+        { error: 'A production identity provider has not been configured' },
+        { status: 503 },
+      );
+    }
     const body = await req.json().catch(() => ({}));
     const { email, accountId, provider = 'auto-login' } = body;
 
@@ -66,8 +73,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nex
     if (provider === 'email' || provider === 'magic-link') {
       return NextResponse.json({
         ok: true,
-        message: `Magic link dispatched to ${email || 'your email'}. Check your inbox to sign in.`,
-        verificationUrl: `http://localhost:3000/auth/verify?token=demo_${Date.now()}`,
+        message: `Development-only magic-link simulation created for ${email || 'your email'}.`,
+        verificationUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/auth/verify?token=demo_${Date.now()}`,
       });
     }
 

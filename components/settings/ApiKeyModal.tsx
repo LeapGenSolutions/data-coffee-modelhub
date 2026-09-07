@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUserStore } from '../../store/useUserStore';
 import { Dialog, DialogFooter } from '../ui/Dialog';
 import { Button } from '../ui/button';
@@ -8,24 +8,20 @@ import { useToast } from '../ui/Toast';
 import { CheckIcon } from '../icons';
 
 export function ApiKeyModal() {
+  const keyModalOpen = useUserStore((state) => state.keyModalOpen);
+  if (!keyModalOpen) return null;
+  return <ApiKeyModalContent />;
+}
+
+function ApiKeyModalContent() {
   const { apiKeys, setApiKeys, keyModalOpen, setKeyModalOpen } = useUserStore();
   const toast = useToast();
 
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [azureEndpoint, setAzureEndpoint] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [googleKey, setGoogleKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState(apiKeys.openai || '');
+  const [azureEndpoint, setAzureEndpoint] = useState(apiKeys.azureEndpoint || '');
+  const [anthropicKey, setAnthropicKey] = useState(apiKeys.anthropic || '');
+  const [googleKey, setGoogleKey] = useState(apiKeys.google || '');
   const [showKeys, setShowKeys] = useState(false);
-
-  // Sync state whenever modal opens or stored keys update
-  useEffect(() => {
-    if (keyModalOpen) {
-      setOpenaiKey(apiKeys.openai || '');
-      setAzureEndpoint(apiKeys.azureEndpoint || '');
-      setAnthropicKey(apiKeys.anthropic || '');
-      setGoogleKey(apiKeys.google || '');
-    }
-  }, [keyModalOpen, apiKeys]);
 
   const handleSave = () => {
     setApiKeys({

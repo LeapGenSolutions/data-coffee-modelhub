@@ -336,7 +336,7 @@ export function ModelArena() {
                     className="p-3 rounded-xl bg-hub-panel border border-hub-border text-xs space-y-1.5"
                   >
                     <div className="flex items-center justify-between text-[11px] text-hub-text-muted">
-                      <span className="truncate max-w-[240px] italic">"{match.prompt}"</span>
+                      <span className="truncate max-w-[240px] italic">&ldquo;{match.prompt}&rdquo;</span>
                       <span className="font-mono">{new Date(match.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex items-center justify-between pt-1 border-t border-hub-border/40 font-semibold">

@@ -13,8 +13,30 @@ env:
   IMAGE_NAME: 'data-coffee-modelhub'
 
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run audit:prod
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: verify
+    environment:
+      name: production
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository

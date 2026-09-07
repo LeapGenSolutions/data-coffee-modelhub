@@ -55,6 +55,10 @@ export const DEMO_AUTH_ACCOUNTS: Array<{
   },
 ];
 
+export const DEMO_AUTH_ENABLED =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === 'true';
+
 /**
  * NextAuth / Auth.js Configuration & Provider Resolver
  */
@@ -116,7 +120,8 @@ export const authConfig = {
  * Server-side Auth Session Getter helper
  */
 export async function getAuthSession(): Promise<AuthSession | null> {
-  // Default auto-login user for seamless development/testing
+  if (!DEMO_AUTH_ENABLED) return null;
+
   return {
     user: {
       id: DEMO_AUTH_ACCOUNTS[0].id,

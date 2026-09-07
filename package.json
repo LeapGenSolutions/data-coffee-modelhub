@@ -2,24 +2,33 @@
   "name": "data-coffee-modelhub",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22 <23"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
     "postinstall": "node -e \"const fs=require('fs');const p=require('path');const s=p.join('node_modules','pdfjs-dist','build','pdf.worker.mjs');const d=p.join('public','pdf.worker.mjs');if(fs.existsSync(s)){fs.mkdirSync('public',{recursive:true});fs.copyFileSync(s,d);console.log('Copied pdf.worker.mjs to public/');}else{console.warn('pdf.worker.mjs not found, skipping copy.');}\""
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.39",
     "@ai-sdk/google": "^4.0.44",
     "@ai-sdk/openai": "^4.0.42",
+    "@azure-rest/ai-document-intelligence": "^1.1.0",
+    "@azure/core-auth": "^1.11.0",
+    "@azure/search-documents": "^13.0.0",
+    "@azure/storage-blob": "^12.33.0",
     "@tanstack/react-query": "^5.50.0",
     "ai": "^7.0.66",
     "clsx": "^2.1.1",
     "dompurify": "^3.4.12",
     "isomorphic-dompurify": "^3.19.0",
     "mammoth": "^1.12.1",
-    "next": "^15.0.0",
+    "next": "16.3.2",
     "pdfjs-dist": "^6.2.108",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -34,8 +43,10 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.2",
     "postcss": "^8.4.39",
     "tailwindcss": "^3.4.4",
-    "typescript": "^5"
+    "typescript": "5.8.2"
   }
 }
