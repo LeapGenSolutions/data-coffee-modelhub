@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '../../../../lib/auth';
 import { uploadDocument, isBlobConfigured } from '../../../../lib/azure/blobStorage';
 import { extractDocumentText, isOcrConfigured } from '../../../../lib/azure/documentIntelligence';
-import { indexDocumentChunks, ensureSearchIndex, isSearchConfigured } from '../../../../lib/azure/searchClient';
-import { chunkWithMetadata } from '../../../../lib/chunker';
-import { generateEmbedding } from '../../../../lib/vectorDb';
 import type { UploadedDocument, SearchIndexDocument, DocumentExtractionMethod, EnrichedChunk } from '../../../../types';
+import { ingestAttachment } from "../../../../services/ragClient";
 
 /** Maximum upload size: 50 MB */
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -98,6 +96,8 @@ export async function POST(req: NextRequest) {
     }
 
     const documentId = `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const ragDocumentId = `${workspaceId}:${fileName}`;
+
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     // 4. Create document record
@@ -220,88 +220,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ document: doc }, { status: 422 });
     }
 
-    // 7. Semantic chunking
-    doc.status = 'chunking';
-    documentRegistry.set(documentId, { ...doc });
-
-    const sourceFormat = isPdf
-      ? 'pdf'
-      : isImageFile
-        ? 'image'
-        : ext === '.csv' || ext === '.tsv'
-          ? 'csv'
-          : ext === '.md'
-            ? 'markdown'
-            : mimeType.includes('wordprocessingml')
-              ? 'docx'
-              : 'text';
-
-    const chunks: EnrichedChunk[] = chunkWithMetadata(
-      fileName,
-      extractedText,
-      sourceFormat as EnrichedChunk['sourceFormat'],
-    );
-
-    if (chunks.length === 0) {
-      doc.status = 'failed';
-      doc.error = 'Document produced zero chunks after processing.';
-      documentRegistry.set(documentId, { ...doc });
-      return NextResponse.json({ document: doc }, { status: 422 });
-    }
-
-    // 8. Generate embeddings + Index into Azure AI Search
+    // 7. Send extracted text to the Python RAG service
     doc.status = 'indexing';
-    doc.chunkCount = chunks.length;
     doc.extractionMethod = extractionMethod;
     doc.pageCount = pageCount;
     doc.ocrConfidence = ocrConfidence;
     documentRegistry.set(documentId, { ...doc });
 
-    if (isSearchConfigured()) {
-      try {
-        await ensureSearchIndex();
+    // 8. Send document content to the Python RAG service
+    try {
+      const ragResult = await ingestAttachment({
+        name: fileName,
+        size: `${file.size}`,
+        type: mimeType,
+        content: extractedText,
+        workspace_id: workspaceId,
+        document_id: ragDocumentId,
+      });
 
-        // Generate embeddings for all chunks
-        const apiKey = process.env.OPENAI_API_KEY || '';
-        const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
-        const isAzureKey = apiKey && !apiKey.startsWith('sk-');
+      doc.chunkCount = ragResult.chunks_count;
 
-        const searchDocs: SearchIndexDocument[] = [];
-        for (const chunk of chunks) {
-          const embedding = await generateEmbedding(
-            chunk.content,
-            apiKey,
-            isAzureKey ? azureEndpoint : undefined,
-          );
+      console.log(
+        `[Upload] RAG ingestion: ${ragResult.status}, chunks: ${ragResult.chunks_count}`,
+      );
+    } catch (err) {
+      console.error('[Upload] RAG ingestion failed:', err);
 
-          searchDocs.push({
-            id: `${documentId}_${chunk.chunkIndex}`,
-            documentId,
-            workspaceId,
-            documentName: fileName,
-            chunkIndex: chunk.chunkIndex,
-            content: chunk.content,
-            contentVector: embedding,
-            pageNumber: chunk.pageNumber,
-            sectionHeading: chunk.sectionHeading,
-            startLine: chunk.startLine,
-            endLine: chunk.endLine,
-            chunkType: chunk.chunkType,
-            tokenCount: chunk.tokenCount,
-            sourceFormat: chunk.sourceFormat,
-          });
-        }
+      doc.status = 'failed';
+      doc.error = `RAG ingestion failed: ${
+        err instanceof Error
+          ? err.message
+          : 'Unknown error'
+      }`;
 
-        await indexDocumentChunks(searchDocs);
-      } catch (err) {
-        console.error('[Upload] Indexing failed:', err);
-        doc.status = 'failed';
-        doc.error = `Indexing failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
-        documentRegistry.set(documentId, { ...doc });
-        return NextResponse.json({ document: doc }, { status: 500 });
-      }
-    } else {
-      console.warn('[Upload] Azure AI Search not configured. Document stored but not indexed for RAG.');
+      documentRegistry.set(
+        documentId,
+        { ...doc },
+      );
+
+      return NextResponse.json(
+        { document: doc },
+        { status: 500 },
+      );
     }
 
     // 9. Mark as complete
@@ -313,10 +273,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       document: doc,
       preview: extractedText.slice(0, 500),
-      chunkCount: chunks.length,
-      message: isSearchConfigured()
-        ? 'Document processed, embedded, and indexed for RAG.'
-        : 'Document processed but Azure AI Search is not configured — RAG search unavailable.',
+      chunkCount: doc.chunkCount,
+      message: 'Document processed, embedded, and indexed for RAG using the Python RAG service.',
     });
   } catch (err) {
     console.error('[Upload] Unexpected error:', err);

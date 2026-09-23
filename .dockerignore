@@ -8,3 +8,11 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.md
+# Python
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+# Local Qdrant data
+qdrant_storage
