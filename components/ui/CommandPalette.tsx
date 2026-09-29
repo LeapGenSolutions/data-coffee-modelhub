@@ -33,8 +33,9 @@ export function CommandPalette() {
 
   useEffect(() => {
     if (open) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 50);
-      return () => clearTimeout(timer);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } else {
+      setQuery('');
     }
   }, [open]);
 

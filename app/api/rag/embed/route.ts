@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateEmbedding, chunkDocument } from '../../../../lib/vectorDb';
-import { getAuthSession } from '../../../../lib/auth';
-
-const MAX_TEXT_LENGTH = 1_000_000;
 
 export async function POST(req: NextRequest) {
   try {
-    if (!(await getAuthSession())) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
     const body = await req.json();
     const { text, documentName = 'document.txt', apiKey } = body;
 
     if (!text) {
       return NextResponse.json({ error: 'Missing text payload' }, { status: 400 });
-    }
-    if (typeof text !== 'string' || text.length > MAX_TEXT_LENGTH) {
-      return NextResponse.json({ error: 'Text must be a string no larger than 1,000,000 characters' }, { status: 413 });
     }
 
     const chunks = chunkDocument(documentName, text);

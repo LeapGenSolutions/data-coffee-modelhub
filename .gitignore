@@ -32,15 +32,3 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Python
-__pycache__/
-*.pyc 
-.venv/
-**/__pycache__/
-**/*.pyc
-**/.venv/
-
-# Qdrant local database/storage
-qdrant_storage/
-**/qdrant_storage/
