@@ -47,59 +47,11 @@ export function Composer({ input, setInput, onSend, isStreaming, isTemp = false 
     }
   };
 
-  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
-
-  const SERVER_UPLOAD_EXTENSIONS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp', '.docx', '.xlsx', '.pptx']);
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       for (const file of Array.from(e.target.files)) {
-        const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
-
-        if (SERVER_UPLOAD_EXTENSIONS.has(ext)) {
-          // Server-side upload for OCR-capable files
-          setUploadingFiles((prev) => new Set(prev).add(file.name));
-          try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('workspaceId', 'default');
-
-            const res = await fetch('/api/documents/upload', {
-              method: 'POST',
-              body: formData,
-            });
-
-            if (res.ok) {
-              const result = await res.json();
-              addPendingFile(file.name, {
-                name: file.name,
-                size: file.size > 1024 * 1024
-                  ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-                  : `${Math.max(1, Math.round(file.size / 1024))} KB`,
-                type: file.type,
-                content: result.preview || `[Indexed document: ${file.name}]`,
-              });
-            } else {
-              // Fallback to client-side parsing if server upload fails
-              const parsed = await parseUploadedFile(file);
-              addPendingFile(file.name, parsed);
-            }
-          } catch {
-            // Fallback to client-side parsing
-            const parsed = await parseUploadedFile(file);
-            addPendingFile(file.name, parsed);
-          } finally {
-            setUploadingFiles((prev) => {
-              const next = new Set(prev);
-              next.delete(file.name);
-              return next;
-            });
-          }
-        } else {
-          // Client-side parsing for text/code files
-          const parsed = await parseUploadedFile(file);
-          addPendingFile(file.name, parsed);
-        }
+        const parsed = await parseUploadedFile(file);
+        addPendingFile(file.name, parsed);
       }
       e.target.value = '';
     }
@@ -114,20 +66,8 @@ export function Composer({ input, setInput, onSend, isStreaming, isTemp = false 
       }`}
     >
       {/* Pending files */}
-      {(pendingFiles.length > 0 || uploadingFiles.size > 0) && (
+      {pendingFiles.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pt-3">
-          {/* Files currently uploading/processing via OCR */}
-          {Array.from(uploadingFiles).filter((f) => !pendingFiles.includes(f)).map((f) => (
-            <span
-              key={`uploading-${f}`}
-              className="inline-flex items-center gap-1.5 bg-hub-accent/10 rounded-full px-2.5 py-1 text-hub-xs text-hub-accent-hi border border-hub-accent/30 animate-pulse"
-            >
-              <span className="h-2 w-2 rounded-full bg-hub-accent animate-ping" />
-              {f}
-              <span className="text-[10px] text-hub-accent">Processing…</span>
-            </span>
-          ))}
-          {/* Already attached files */}
           {pendingFiles.map((f) => (
             <span
               key={f}
@@ -154,7 +94,7 @@ export function Composer({ input, setInput, onSend, isStreaming, isTemp = false 
           onChange={handleFileUpload}
           hidden
           multiple
-          accept=".pdf,.doc,.docx,.xlsx,.pptx,.txt,.md,.csv,.tsv,.json,.ts,.tsx,.js,.jsx,.py,.rs,.go,.sql,.html,.css,.yaml,.yml,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp"
+          accept=".pdf,.doc,.docx,.txt,.md,.csv,.tsv,.json,.ts,.tsx,.js,.jsx,.py,.rs,.go,.sql,.html,.css,.yaml,.yml"
         />
 
         <button

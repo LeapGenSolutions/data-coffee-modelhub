@@ -2,17 +2,9 @@ node_modules
 .next
 .git
 .gitignore
-.env*
+.env*.local
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.md
-# Python
-**/.venv
-**/__pycache__
-**/*.pyc
-**/.pytest_cache
-
-# Local Qdrant data
-qdrant_storage

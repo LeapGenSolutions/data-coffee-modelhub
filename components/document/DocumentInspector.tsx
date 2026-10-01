@@ -10,12 +10,11 @@ export function DocumentInspector() {
 
   const [copied, setCopied] = React.useState(false);
   const highlightedRef = useRef<HTMLDivElement>(null);
-  const documentContent = activeDocument?.content;
 
   const lines = useMemo(() => {
-    if (!documentContent) return ['(Empty document or binary file preview not available)'];
-    return documentContent.split(/\r?\n/);
-  }, [documentContent]);
+    if (!activeDocument?.content) return ['(Empty document or binary file preview not available)'];
+    return activeDocument.content.split(/\r?\n/);
+  }, [activeDocument?.content]);
 
   // Auto-scroll into view when highlighted lines change
   useEffect(() => {
@@ -52,16 +51,6 @@ export function DocumentInspector() {
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-hub-bg border border-hub-border text-hub-text-sec shrink-0">
                   {activeDocument.size || 'Attached'}
                 </span>
-                {activeDocument.type?.includes('pdf') && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 shrink-0">
-                    PDF
-                  </span>
-                )}
-                {(activeDocument.type?.includes('image') || activeDocument.type?.includes('png') || activeDocument.type?.includes('jpeg')) && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400 shrink-0">
-                    OCR
-                  </span>
-                )}
               </div>
               <span className="text-[11px] text-hub-text-muted">
                 {totalLines} lines · ~{new Intl.NumberFormat('en-US').format(tokenEstimate)} tokens · text-embedding-3-small indexed

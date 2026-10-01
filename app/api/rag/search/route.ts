@@ -1,70 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRagContext } from '../../../../services/ragClient';
+import { searchSemanticDocuments, buildRagPromptContext } from '../../../../lib/vectorDb';
 
-
-export async function POST(
-  req: NextRequest,
-) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const { query, documents = [], apiKey, topK = 3 } = body;
 
-    if (
-      typeof body.query !== 'string' ||
-      !body.query.trim()
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Query is required',
-        },
-        {
-          status: 400,
-        },
-      );
+    if (!query || typeof query !== 'string') {
+      return NextResponse.json({ error: 'Missing query parameter' }, { status: 400 });
     }
 
-    const result = await getRagContext({
-      query: body.query,
-      workspace_id:
-        typeof body.workspace_id === 'string'
-          ? body.workspace_id
-          : typeof body.workspaceId === 'string'
-            ? body.workspaceId
-            : 'default',
+    const keyToUse = apiKey || process.env.OPENAI_API_KEY;
+    const results = await searchSemanticDocuments(query, documents, keyToUse, topK);
+    const { contextPrompt, citations } = buildRagPromptContext(results);
 
-      document_ids:
-        Array.isArray(body.document_ids)
-          ? body.document_ids
-          : Array.isArray(body.documentIds)
-            ? body.documentIds
-            : undefined,
-
-      top_k:
-        typeof body.top_k === 'number'
-          ? body.top_k
-          : typeof body.topK === 'number'
-            ? body.topK
-            : 4,
+    return NextResponse.json({
+      query,
+      resultsCount: results.length,
+      results: results.map((r) => ({
+        documentName: r.chunk.documentName,
+        startLine: r.chunk.startLine,
+        endLine: r.chunk.endLine,
+        similarity: r.similarity,
+        snippet: r.chunk.content,
+      })),
+      citations,
+      contextPrompt,
     });
-
-    return NextResponse.json(
-      result,
-    );
-  } catch (error) {
-    console.error(
-      '[RAG Search] Failed:',
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'RAG search failed',
-      },
-      {
-        status: 500,
-      },
-    );
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || 'RAG search error' }, { status: 500 });
   }
 }
