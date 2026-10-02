@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '../../../../lib/auth';
-import { listAllDocuments } from '../upload/route';
+import { listAllDocuments } from '../../../../lib/documentRegistry';
 
 /**
  * GET /api/documents/list?workspaceId=xxx

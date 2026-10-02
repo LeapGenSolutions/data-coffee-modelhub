@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '../../../../lib/auth';
-import { getDocumentById } from '../upload/route';
+import { getDocumentById } from '../../../../lib/documentRegistry';
 
 /**
  * GET /api/documents/[id]

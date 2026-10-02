@@ -35,21 +35,7 @@ const TEXT_EXTENSIONS = new Set([
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp']);
 
-/**
- * In-memory document registry.
- * In production, replace with a database (PostgreSQL / CosmosDB).
- */
-const documentRegistry = new Map<string, UploadedDocument>();
-
-export function getDocumentById(id: string): UploadedDocument | undefined {
-  return documentRegistry.get(id);
-}
-
-export function listAllDocuments(workspaceId?: string): UploadedDocument[] {
-  const all = Array.from(documentRegistry.values());
-  if (workspaceId) return all.filter((d) => d.workspaceId === workspaceId);
-  return all;
-}
+import { documentRegistry } from '../../../../lib/documentRegistry';
 
 /**
  * POST /api/documents/upload

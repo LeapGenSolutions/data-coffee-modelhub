@@ -136,7 +136,7 @@ export async function streamWithProvider(
   }
 
   /* ─── 5. Offline / Zero-Config Simulated Fallback Generator ─── */
-  if (process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH !== 'true') {
+  if (process.env.DISABLE_SIMULATED_AI === 'true') {
     return createErrorStream('No AI provider is configured for this request.', 503);
   }
   return generateSimulatedStream(prompt, modelId, attachments);

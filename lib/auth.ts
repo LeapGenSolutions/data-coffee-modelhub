@@ -55,9 +55,7 @@ export const DEMO_AUTH_ACCOUNTS: Array<{
   },
 ];
 
-export const DEMO_AUTH_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_DEMO_AUTH === 'true' ||
-  process.env.NODE_ENV !== 'production';
+export const DEMO_AUTH_ENABLED = process.env.DISABLE_DEMO_AUTH !== 'true';
 
 /**
  * NextAuth / Auth.js Configuration & Provider Resolver
