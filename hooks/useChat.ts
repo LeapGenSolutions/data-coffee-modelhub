@@ -35,12 +35,15 @@ export function useChatCore() {
     const trimmed = input.trim();
     if (!trimmed && pendingFiles.length === 0) return;
 
+    const currentPendingAttachments = [...pendingAttachments];
+    const currentPendingFiles = [...pendingFiles];
+
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}`,
       role: 'user',
       content: trimmed,
-      files: pendingFiles.length > 0 ? [...pendingFiles] : undefined,
-      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined,
+      files: currentPendingFiles.length > 0 ? currentPendingFiles : undefined,
+      attachments: currentPendingAttachments.length > 0 ? currentPendingAttachments : undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -78,10 +81,10 @@ export function useChatCore() {
 
     addMessageToChat(targetChatId, initialAssistantMsg);
 
-    // Collect all documents uploaded in this chat session + any new pending attachments
+    // Collect all documents uploaded in this chat session + current pending attachments
     const pastAttachments = (currentChat?.messages || []).flatMap((m) => m.attachments || []);
     const combinedAttachmentsMap = new Map<string, any>();
-    [...pastAttachments, ...pendingAttachments].forEach((att) => {
+    [...pastAttachments, ...currentPendingAttachments].forEach((att) => {
       if (att && att.name) {
         combinedAttachmentsMap.set(att.name.toLowerCase(), att);
       }

@@ -166,93 +166,69 @@ export async function POST(
       resolveProviderKeys(apiKeys);
 
 
-    // ─── Build RAG Context ───
+    // ─── Build Direct Document Context & RAG Context ───
     let combinedPrompt = prompt;
 
+    // 1. Direct Document Context: if attachments are provided, inject their text directly so the model can analyze them
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      const validDocs = attachments.filter(
+        (att) => att && typeof att.content === 'string' && att.content.trim(),
+      );
+
+      if (validDocs.length > 0) {
+        const docSections = validDocs
+          .map((att) => `--- Attached Document: ${att.name} ---\n${att.content}`)
+          .join('\n\n');
+
+        combinedPrompt = `You have access to the following document(s) uploaded by the user:\n\n${docSections}\n\nUser Question / Instructions: ${prompt}`;
+      }
+    }
 
     if (useRag !== false) {
-
-      
-    // Attachments that contain extracted text are indexed through the Python RAG service
-       
-      for (
-        const attachment of attachments
-      ) {
-
-        if (
-          typeof attachment.content !== 'string' ||
-          !attachment.content.trim()
-        ) {
+      // Ingest attachments to RAG service if available
+      for (const attachment of attachments) {
+        if (typeof attachment.content !== 'string' || !attachment.content.trim()) {
           continue;
         }
-
 
         const ragDocumentId =
           attachment.documentId ||
           `${workspaceId}:${attachment.name}`;
 
-
         try {
-          const ingestionResult =
-            await ingestAttachment({
-              name: attachment.name,
-
-              size:
-                typeof attachment.size === 'number'
-                  ? String(attachment.size)
-                  : attachment.size || '0',
-
-              type:
-                attachment.type ||
-                'text/plain',
-
-              content:
-                attachment.content,
-
-              workspace_id:
-                workspaceId,
-
-              document_id:
-                ragDocumentId,
-            });
-
-
-          console.log(
-            `[Chat] RAG ingestion for ${attachment.name}: ${ingestionResult.status}`,
-          );
+          await ingestAttachment({
+            name: attachment.name,
+            size:
+              typeof attachment.size === 'number'
+                ? String(attachment.size)
+                : attachment.size || '0',
+            type:
+              attachment.type ||
+              'text/plain',
+            content:
+              attachment.content,
+            workspace_id:
+              workspaceId,
+            document_id:
+              ragDocumentId,
+          });
         } catch (error) {
-
-          console.error(
-            `[Chat] RAG ingestion failed for ${attachment.name}:`,
-            error,
-          );
+          console.warn(`[Chat] RAG ingestion skipped for ${attachment.name}:`, error);
         }
       }
 
-
       try {
-        const ragResult =
-          await getRagContext({
-            query: prompt,
-            workspace_id:
-              workspaceId,
-            top_k: 4,
-          });
+        const ragResult = await getRagContext({
+          query: prompt,
+          workspace_id: workspaceId,
+          top_k: 4,
+        });
 
-
-        if (
-          ragResult.contextPrompt
-        ) {
-          combinedPrompt =
-            `${ragResult.contextPrompt}\n\n` +
-            `User Question: ${prompt}`;
+        if (ragResult.contextPrompt) {
+          combinedPrompt = `${ragResult.contextPrompt}\n\n${combinedPrompt}`;
         }
       } catch (error) {
-
-        console.error(
-          '[Chat] RAG search failed:',
-          error,
-        );
+        console.warn('[Chat] RAG search skipped (using direct document context):', error);
       }
     }
 
