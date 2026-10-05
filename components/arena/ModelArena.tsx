@@ -71,12 +71,16 @@ export function ModelArena() {
     setUserVoted(null);
     deductUsage(text, 2.5);
 
-    // If blind mode, randomize models if user hasn't specified
+    // In blind mode, sample two distinct models randomly from the candidate pool
     let targetModelA = modelAId;
     let targetModelB = modelBId;
-    if (isBlindMode && Math.random() > 0.5) {
-      targetModelA = modelBId;
-      targetModelB = modelAId;
+    if (isBlindMode) {
+      const modelPool = MOCK_MODELS.map((m) => m.id);
+      if (modelPool.length >= 2) {
+        const shuffled = [...modelPool].sort(() => Math.random() - 0.5);
+        targetModelA = shuffled[0];
+        targetModelB = shuffled[1];
+      }
     }
 
     const targetSlots = (!isBlindMode && threeColumns)

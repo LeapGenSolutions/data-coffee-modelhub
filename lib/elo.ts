@@ -121,9 +121,13 @@ export function calculateNewElo(
       actualB = 0.5;
       break;
     case 'both_bad':
-      actualA = 0.0;
-      actualB = 0.0;
-      break;
+      // In LMSYS / Bradley-Terry benchmarks, both_bad is rating-neutral to prevent pool deflation
+      return {
+        newRatingA: ratingA,
+        newRatingB: ratingB,
+        deltaA: 0,
+        deltaB: 0,
+      };
   }
 
   const deltaA = Math.round(kFactor * (actualA - expectedA));

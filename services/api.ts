@@ -8,10 +8,27 @@ import { MOCK_MODELS, MOCK_USER, MOCK_CHATS, MOCK_WORKSPACES, MOCK_USAGE_HISTORY
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+import { BackendClient } from './backendClient';
+
 /* ─── Models ─── */
 
 export async function fetchModels(): Promise<AIModel[]> {
-  await delay(50);
+  try {
+    const backendModels = await BackendClient.getAIModels();
+    if (backendModels && Array.isArray(backendModels) && backendModels.length > 0) {
+      return backendModels.map((m) => ({
+        id: m.id || m.model_name.toLowerCase().replace(/\s+/g, '-'),
+        name: m.model_name,
+        provider: m.provider as any,
+        badge: m.scope || 'Cloud',
+        avatarBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        contextLimit: '128k',
+        description: m.description || `Enterprise ${m.provider} model managed via Cosmos DB`,
+      }));
+    }
+  } catch {
+    // Fall back to local catalog
+  }
   return MOCK_MODELS;
 }
 
@@ -117,14 +134,65 @@ export async function sendMessage(request: ChatRequest): Promise<ChatResponse> {
 /* ─── Workspaces ─── */
 
 export async function fetchWorkspaces(): Promise<Workspace[]> {
-  await delay(50);
+  try {
+    const backendWorkspaces = await BackendClient.getWorkspaces();
+    if (backendWorkspaces && Array.isArray(backendWorkspaces) && backendWorkspaces.length > 0) {
+      return backendWorkspaces.map((w: any) => ({
+        id: w.id,
+        name: w.name || w.workspace_name,
+        description: w.description || 'Enterprise Workspace',
+        plan: w.plan || 'Team',
+        members: (w.members || []).map((m: any) => ({
+          name: m.name || m.email,
+          role: m.role || 'Member',
+          avatar: (m.name || m.email || 'U').slice(0, 2).toUpperCase(),
+        })),
+        documents: (w.documents || []).map((d: any) => ({
+          name: d.name,
+          info: d.size || 'Indexed',
+          uploadedBy: d.uploadedBy || 'Team',
+          content: d.content,
+        })),
+      }));
+    }
+  } catch {
+    // Fall back to local mock
+  }
   return MOCK_WORKSPACES;
 }
 
 /* ─── Billing ─── */
 
-export async function fetchUsageHistory(): Promise<UsageRecord[]> {
-  await delay(100);
+export async function fetchUsageHistory(userId = 'user_alex'): Promise<UsageRecord[]> {
+  try {
+    const history = await BackendClient.getUserHistory(userId);
+    if (history && Array.isArray(history) && history.length > 0) {
+      return history.map((r, i) => {
+        const isClaude = r.model_id.toLowerCase().includes('claude');
+        const isGemini = r.model_id.toLowerCase().includes('gemini');
+        const providerName = isClaude ? 'Anthropic' : isGemini ? 'Google' : 'OpenAI';
+
+        return {
+          id: r.id || `u_${i}`,
+          date: new Date(r.timestamp).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          model: r.model_id,
+          provider: providerName,
+          inputTokens: r.input_tokens,
+          outputTokens: r.output_tokens,
+          credits: r.credits_used,
+          status: (r.status === 'COMPLETED' ? 'Completed' : r.status) as any,
+        };
+      });
+    }
+  } catch {
+    // Fall back to local mock
+  }
   return MOCK_USAGE_HISTORY;
 }
 

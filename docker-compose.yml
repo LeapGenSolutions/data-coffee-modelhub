@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # ─── 1. Next.js Frontend & AI Gateway ───
+  modelhub-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datacoffee-modelhub
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=local_nextauth_development_secret_32chars
+      - RAG_SERVICE_URL=http://rag-service:8000
+      - BACKEND_API_URL=http://middleware:3001
+      - MIDDLEWARE_API_SECRET=datacoffee_shared_internal_secret
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY}
+    depends_on:
+      - rag-service
+      - middleware
+    restart: unless-stopped
+
+  # ─── 2. Python RAG Engine (FastAPI) ───
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: Dockerfile
+    container_name: datacoffee-rag-service
+    ports:
+      - "8000:8000"
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=documents
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - EMBEDDING_DIMENSION=1536
+      - RAG_SERVICE_HOST=0.0.0.0
+      - RAG_SERVICE_PORT=8000
+    depends_on:
+      - qdrant
+    restart: unless-stopped
+
+  # ─── 3. Express.js Middleware & Cosmos DB Client ───
+  middleware:
+    build:
+      context: ../data-coffee-backend
+    container_name: datacoffee-middleware
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - COSMOS_ENDPOINT=${COSMOS_ENDPOINT}
+      - COSMOS_DATABASE=${COSMOS_DATABASE:-datacoffee}
+      - MIDDLEWARE_API_SECRET=datacoffee_shared_internal_secret
+    restart: unless-stopped
+
+  # ─── 4. Qdrant Vector Store ───
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    container_name: datacoffee-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:

@@ -28,10 +28,14 @@ class QdrantRepository:
         )
 
         self.collection_name = QDRANT_COLLECTION
+        self._collection_initialized = False
 
     def ensure_collection(self) -> None:
-
-       # Create the collection when it does not already exist.
+        """
+        Create the collection and payload indexes when it does not already exist.
+        """
+        if self._collection_initialized:
+            return
 
         collections = self.client.get_collections()
 
@@ -40,21 +44,34 @@ class QdrantRepository:
             for collection in collections.collections
         )
 
-        if exists:
-            return
+        if not exists:
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config={
+                    self.DENSE_VECTOR_NAME: models.VectorParams(
+                        size=EMBEDDING_DIMENSION,
+                        distance=models.Distance.COSINE,
+                    ),
+                },
+                sparse_vectors_config={
+                    self.SPARSE_VECTOR_NAME: models.SparseVectorParams(),
+                },
+            )
+            try:
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="workspace_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="document_id",
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                pass
 
-        self.client.create_collection(
-            collection_name=self.collection_name,
-            vectors_config={
-                self.DENSE_VECTOR_NAME: models.VectorParams(
-                    size=EMBEDDING_DIMENSION,
-                    distance=models.Distance.COSINE,
-                ),
-            },
-            sparse_vectors_config={
-                self.SPARSE_VECTOR_NAME: models.SparseVectorParams(),
-            },
-        )
+        self._collection_initialized = True
 
     def upsert_chunks(
         self,

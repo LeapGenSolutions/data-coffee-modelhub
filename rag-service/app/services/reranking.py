@@ -42,36 +42,16 @@ def rerank_results(
             for term in terms
         )
 
-        exact_match_bonus = (
-            min(
-                exact_match_count,
-                5,
-            )
-            * 0.04
-        )
+        # Proportional multiplier to reward lexical/phrase overlap without obliterating RRF base score
+        multiplier = 1.0
+        if exact_match_count > 0:
+            multiplier += min(exact_match_count, 5) * 0.04  # Up to +20%
+        if query.lower() in content:
+            multiplier += 0.15  # +15% exact phrase match boost
+        if any(line.lstrip().startswith("#") for line in result.content.splitlines()):
+            multiplier += 0.05  # +5% section header boost
 
-        query_phrase_bonus = (
-            0.10
-            if query.lower()
-            in content
-            else 0.0
-        )
-
-        header_bonus = (
-            0.05
-            if any(
-                line.lstrip().startswith("#")
-                for line in result.content.splitlines()
-            )
-            else 0.0
-        )
-
-        final_score = (
-            result.base_score
-            + exact_match_bonus
-            + query_phrase_bonus
-            + header_bonus
-        )
+        final_score = result.base_score * multiplier
 
         ranked_results.append(
             result.model_copy(

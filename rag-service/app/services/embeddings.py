@@ -40,18 +40,18 @@ class EmbeddingService:
         if not texts:
             return []
 
-        cleaned_texts = [
-            text.strip()
+        # Sanitize empty chunks to a placeholder so output length strictly matches input length
+        sanitized_texts = [
+            text.strip() if (text and text.strip()) else " "
             for text in texts
-            if text and text.strip()
         ]
 
-        if not cleaned_texts:
+        if not sanitized_texts:
             return []
 
         response = self.client.embeddings.create(
             model=self.model,
-            input=cleaned_texts,
+            input=sanitized_texts,
         )
 
         return [

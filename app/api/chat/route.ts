@@ -10,6 +10,7 @@ import {
   getRagContext,
   ingestAttachment,
 } from '../../../services/ragClient';
+import { BackendClient } from '../../../services/backendClient';
 
 
 interface RequestPayload {
@@ -47,7 +48,8 @@ export async function POST(
 ) {
   try {
     // ─── Auth ───
-    if (!(await getAuthSession())) {
+    const session = await getAuthSession();
+    if (!session) {
       return NextResponse.json(
         {
           error: 'Authentication required',
@@ -166,57 +168,39 @@ export async function POST(
       resolveProviderKeys(apiKeys);
 
 
-    // ─── Build Direct Document Context & RAG Context ───
+    // ─── Build Grounded Prompt (Direct Attachment Context & Vector RAG) ───
     let combinedPrompt = prompt;
 
-    // 1. Direct Document Context: if attachments are provided, inject their text directly so the model can analyze them
-    if (Array.isArray(attachments) && attachments.length > 0) {
-      const validDocs = attachments.filter(
-        (att) => att && typeof att.content === 'string' && att.content.trim(),
-      );
+    // 1. Direct Attachment Context (if user attached files in current prompt)
+    const validDocs = Array.isArray(attachments)
+      ? attachments.filter((att) => att && typeof att.content === 'string' && att.content.trim())
+      : [];
 
-      if (validDocs.length > 0) {
-        const docSections = validDocs
-          .map((att) => `--- Attached Document: ${att.name} ---\n${att.content}`)
-          .join('\n\n');
+    if (validDocs.length > 0) {
+      const docSections = validDocs
+        .map((att) => `--- Attached Document: ${att.name} ---\n${att.content}`)
+        .join('\n\n');
 
-        combinedPrompt = `You have access to the following document(s) uploaded by the user:\n\n${docSections}\n\nUser Question / Instructions: ${prompt}`;
-      }
-    }
+      combinedPrompt = `You have access to the following attached document(s):\n\n${docSections}\n\nUser Question / Instructions: ${prompt}`;
 
-    if (useRag !== false) {
-      // Ingest attachments to RAG service if available
-      for (const attachment of attachments) {
-        if (typeof attachment.content !== 'string' || !attachment.content.trim()) {
-          continue;
-        }
-
-        const ragDocumentId =
-          attachment.documentId ||
-          `${workspaceId}:${attachment.name}`;
-
-        try {
-          await ingestAttachment({
+      // Asynchronously index attachments in the background so TTFT is not blocked
+      if (useRag !== false) {
+        for (const attachment of validDocs) {
+          const ragDocumentId = attachment.documentId || `${workspaceId}:${attachment.name}`;
+          ingestAttachment({
             name: attachment.name,
-            size:
-              typeof attachment.size === 'number'
-                ? String(attachment.size)
-                : attachment.size || '0',
-            type:
-              attachment.type ||
-              'text/plain',
-            content:
-              attachment.content,
-            workspace_id:
-              workspaceId,
-            document_id:
-              ragDocumentId,
+            size: typeof attachment.size === 'number' ? String(attachment.size) : attachment.size || '0',
+            type: attachment.type || 'text/plain',
+            content: attachment.content!,
+            workspace_id: workspaceId,
+            document_id: ragDocumentId,
+          }).catch((err) => {
+            console.warn(`[Chat] Background RAG ingestion deferred for ${attachment.name}:`, err.message);
           });
-        } catch (error) {
-          console.warn(`[Chat] RAG ingestion skipped for ${attachment.name}:`, error);
         }
       }
-
+    } else if (useRag !== false) {
+      // 2. Vector Store RAG Retrieval when no raw files are inlined
       try {
         const ragResult = await getRagContext({
           query: prompt,
@@ -224,17 +208,16 @@ export async function POST(
           top_k: 4,
         });
 
-        if (ragResult.contextPrompt) {
-          combinedPrompt = `${ragResult.contextPrompt}\n\n${combinedPrompt}`;
+        if (ragResult?.contextPrompt) {
+          combinedPrompt = `${ragResult.contextPrompt}\n\nUser Question: ${prompt}`;
         }
-      } catch (error) {
-        console.warn('[Chat] RAG search skipped (using direct document context):', error);
+      } catch (error: any) {
+        console.warn('[Chat] RAG retrieval skipped, using direct model inference:', error?.message);
       }
     }
 
-
     // ─── Stream Response ───
-    return await streamWithProvider(
+    const responseStream = await streamWithProvider(
       mapping,
       keys,
       combinedPrompt,
@@ -242,6 +225,23 @@ export async function POST(
       modelId,
       attachments,
     );
+
+    // ─── Async Telemetry to Backend Middleware (Fire & Forget) ───
+    const inputEstimate = Math.max(1, Math.ceil(combinedPrompt.length / 3.8));
+    BackendClient.logInference({
+      user_id: session?.user?.id || 'demo_user',
+      workspace_id: workspaceId,
+      timestamp: new Date().toISOString(),
+      model_id: modelId,
+      input_tokens: inputEstimate,
+      output_tokens: 450, // Projected completion baseline
+      credits_used: Math.round(((inputEstimate / 1_000_000) * 2.5 + (450 / 1_000_000) * 10) * 100) / 100,
+      status: 'COMPLETED',
+    }).catch(() => {
+      // Silently proceed if middleware is offline
+    });
+
+    return responseStream;
 
   } catch (err: unknown) {
 

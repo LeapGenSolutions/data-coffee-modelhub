@@ -12,9 +12,9 @@ export const MODEL_MAPPINGS: Record<string, { provider: 'openai' | 'anthropic' |
   'gpt-5':            { provider: 'openai',    targetModel: 'gpt-4o' },
   'gpt-5-mini':       { provider: 'openai',    targetModel: 'gpt-4o-mini' },
   'gemini-2.5-flash': { provider: 'google',    targetModel: 'gemini-2.5-flash' },
-  'gemini-2.5-pro':   { provider: 'google',    targetModel: 'gemini-2.5-flash' },
+  'gemini-2.5-pro':   { provider: 'google',    targetModel: 'gemini-2.5-pro' },
   'gemini-flash':     { provider: 'google',    targetModel: 'gemini-2.5-flash' },
-  'gemini-pro':       { provider: 'google',    targetModel: 'gemini-2.5-flash' },
+  'gemini-pro':       { provider: 'google',    targetModel: 'gemini-2.5-pro' },
 };
 
 export function resolveProviderKeys(apiKeys: any = {}) {
