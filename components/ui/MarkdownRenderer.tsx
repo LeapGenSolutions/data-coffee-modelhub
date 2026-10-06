@@ -23,6 +23,7 @@ function normalizeMarkdown(raw: string): string {
     .replace(/<i>(.*?)<\/i>/gi, '*$1*')
     .replace(/<em>(.*?)<\/em>/gi, '*$1*')
     .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\s*—\s*/g, ' - ')
     .trim();
 }
 
@@ -69,6 +70,9 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
           },
           td({ children }) {
             return <td className="p-2.5 border-b border-hub-border/40">{children}</td>;
+          },
+          hr() {
+            return null;
           },
           blockquote({ children }) {
             return (

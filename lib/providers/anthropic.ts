@@ -1,4 +1,5 @@
 import { createErrorStream } from './google';
+import { SYSTEM_PROMPT } from './systemPrompt';
 
 /**
  * Direct Anthropic Messages API Streaming
@@ -27,6 +28,7 @@ export async function streamAnthropic(
       body: JSON.stringify({
         model,
         max_tokens: 4096,
+        system: SYSTEM_PROMPT,
         messages,
         stream: true,
       }),

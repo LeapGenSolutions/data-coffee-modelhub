@@ -122,6 +122,7 @@ export async function POST(req: NextRequest) {
     let pageCount: number | undefined;
     let ocrConfidence: number | undefined;
     let extractionMethod: DocumentExtractionMethod = 'native';
+    let isPlaceholder = false;
 
     const isImageFile = IMAGE_EXTENSIONS.has(ext);
     const isPdf = ext === '.pdf' || mimeType === 'application/pdf';
@@ -155,6 +156,7 @@ export async function POST(req: NextRequest) {
       if (DEMO_AUTH_ENABLED) {
         extractedText = `[PDF Document: ${fileName} (${(file.size / 1024).toFixed(1)} KB)]\n\nContent indexed into workspace context for AI queries.`;
         extractionMethod = 'native';
+        isPlaceholder = true;
       } else {
         doc.status = 'failed';
         doc.error = 'Azure Document Intelligence is not configured. Cannot extract text from PDFs without OCR.';
@@ -171,6 +173,7 @@ export async function POST(req: NextRequest) {
       if (DEMO_AUTH_ENABLED) {
         extractedText = `[Image File: ${fileName} (${(file.size / 1024).toFixed(1)} KB)]\n\nImage metadata indexed into workspace context for AI queries.`;
         extractionMethod = 'native';
+        isPlaceholder = true;
       } else {
         doc.status = 'failed';
         doc.error = 'Azure Document Intelligence is not configured. Cannot extract text from images without OCR.';
@@ -184,8 +187,21 @@ export async function POST(req: NextRequest) {
         );
       }
     } else if (mimeType.includes('wordprocessingml')) {
-      // DOCX — try Azure DI if available, otherwise fail
-      if (isOcrConfigured()) {
+      // DOCX — try Azure DI if available, then mammoth, otherwise fail
+      let mammothText = '';
+      if (!isOcrConfigured()) {
+        try {
+          const mammoth = await import('mammoth');
+          mammothText = (await mammoth.extractRawText({ buffer: fileBuffer })).value.trim();
+        } catch (err) {
+          console.warn('[Upload] mammoth DOCX extraction failed:', err);
+        }
+      }
+
+      if (mammothText) {
+        extractedText = mammothText;
+        extractionMethod = 'native';
+      } else if (isOcrConfigured()) {
         try {
           const ocrResult = await extractDocumentText(fileBuffer, mimeType);
           extractedText = ocrResult.text;
@@ -201,6 +217,7 @@ export async function POST(req: NextRequest) {
       } else if (DEMO_AUTH_ENABLED) {
         extractedText = `[DOCX Document: ${fileName} (${(file.size / 1024).toFixed(1)} KB)]\n\nDocument indexed into workspace context for AI queries.`;
         extractionMethod = 'native';
+        isPlaceholder = true;
       } else {
         doc.status = 'failed';
         doc.error = 'Azure Document Intelligence is not configured. Cannot extract text from DOCX files server-side.';
@@ -254,6 +271,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       document: doc,
       preview: extractedText.slice(0, 500),
+      // Full text for chat; omitted when only a placeholder was produced
+      content: isPlaceholder ? undefined : extractedText.slice(0, 250_000),
       chunkCount: doc.chunkCount,
       message: 'Document processed, embedded, and indexed for RAG using the Python RAG service.',
     });

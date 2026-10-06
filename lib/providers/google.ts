@@ -1,3 +1,5 @@
+import { SYSTEM_PROMPT } from './systemPrompt';
+
 /**
  * Shared error stream helper for provider responses.
  */
@@ -90,10 +92,15 @@ export async function streamGoogleGemini(
   ];
 
   try {
+    const requestBody = JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents,
+    });
+
     let res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents }),
+      body: requestBody,
     });
 
     if (res.status === 503 && activeModel !== 'gemini-2.5-flash-lite') {
@@ -101,7 +108,7 @@ export async function streamGoogleGemini(
       res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents }),
+        body: requestBody,
       });
     }
 

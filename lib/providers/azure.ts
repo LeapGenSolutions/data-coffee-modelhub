@@ -1,5 +1,6 @@
 import { createErrorStream } from './google';
 import { streamGoogleGemini } from './google';
+import { SYSTEM_PROMPT } from './systemPrompt';
 
 /**
  * Azure OpenAI Chat Completions Streaming with Gemini fallback on 404
@@ -16,7 +17,7 @@ export async function streamAzureOpenAI(
   const endpoint = `${baseUrl}/openai/deployments/${model}/chat/completions?api-version=2024-02-01`;
 
   const messages = [
-    { role: 'system', content: 'You are an expert AI assistant connected via Azure Microsoft Foundry. Ground your answers in provided workspace and RAG context.' },
+    { role: 'system', content: SYSTEM_PROMPT },
     ...history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: prompt },
   ];

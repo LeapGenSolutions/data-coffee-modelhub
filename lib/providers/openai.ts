@@ -1,4 +1,5 @@
 import { createErrorStream } from './google';
+import { SYSTEM_PROMPT } from './systemPrompt';
 
 /**
  * Direct OpenAI Chat Completions Streaming
@@ -12,7 +13,7 @@ export async function streamOpenAI(
   const endpoint = 'https://api.openai.com/v1/chat/completions';
 
   const messages = [
-    { role: 'system', content: 'You are an expert AI assistant on Data Coffee Model Hub. Format responses clearly with clean Markdown and code blocks.' },
+    { role: 'system', content: SYSTEM_PROMPT },
     ...history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: prompt },
   ];

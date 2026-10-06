@@ -71,13 +71,19 @@ export function Composer({ input, setInput, onSend, isStreaming, isTemp = false 
 
             if (res.ok) {
               const result = await res.json();
+              // Server only had a placeholder (no OCR configured): parse in the browser instead
+              const content: string =
+                result.content ||
+                (await parseUploadedFile(file).catch(() => null))?.content ||
+                result.preview ||
+                `[Indexed document: ${file.name}]`;
               addPendingFile(file.name, {
                 name: file.name,
                 size: file.size > 1024 * 1024
                   ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
                   : `${Math.max(1, Math.round(file.size / 1024))} KB`,
                 type: file.type,
-                content: result.preview || `[Indexed document: ${file.name}]`,
+                content,
               });
             } else {
               // Fallback to client-side parsing if server upload fails
