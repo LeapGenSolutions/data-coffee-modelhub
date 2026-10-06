@@ -85,19 +85,19 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             return <h1 className="text-[17px] font-bold text-hub-text mt-3 mb-1.5">{children}</h1>;
           },
           h2({ children }) {
-            return <h2 className="text-[15px] font-bold text-hub-text mt-2.5 mb-1">{children}</h2>;
+            return <h2 className="text-[15px] font-bold text-hub-text mt-4 mb-1.5 first:mt-0">{children}</h2>;
           },
           h3({ children }) {
-            return <h3 className="text-[14px] font-semibold text-hub-text mt-2 mb-1">{children}</h3>;
+            return <h3 className="text-[14px] font-semibold text-hub-text mt-3.5 mb-1 first:mt-0">{children}</h3>;
           },
           ul({ children }) {
-            return <ul className="list-disc list-inside space-y-1 my-1.5 text-hub-text-sec">{children}</ul>;
+            return <ul className="list-disc list-outside pl-5 space-y-1 my-1.5 text-hub-text-sec marker:text-hub-text-muted">{children}</ul>;
           },
           ol({ children }) {
-            return <ol className="list-decimal list-inside space-y-1 my-1.5 text-hub-text-sec">{children}</ol>;
+            return <ol className="list-decimal list-outside pl-5 space-y-1 my-1.5 text-hub-text-sec marker:text-hub-text-muted">{children}</ol>;
           },
           li({ children }) {
-            return <li className="text-hub-text">{children}</li>;
+            return <li className="text-hub-text pl-0.5 [&>p]:mb-1 [&>p:last-child]:mb-0">{children}</li>;
           },
           p({ children }) {
             const childrenArray = React.Children.toArray(children);

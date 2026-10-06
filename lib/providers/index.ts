@@ -11,10 +11,11 @@ export const MODEL_MAPPINGS: Record<string, { provider: 'openai' | 'anthropic' |
   'claude-opus':      { provider: 'anthropic', targetModel: 'claude-3-opus-20240229' },
   'gpt-5':            { provider: 'openai',    targetModel: 'gpt-4o' },
   'gpt-5-mini':       { provider: 'openai',    targetModel: 'gpt-4o-mini' },
-  'gemini-2.5-flash': { provider: 'google',    targetModel: 'gemini-2.5-flash' },
-  'gemini-2.5-pro':   { provider: 'google',    targetModel: 'gemini-2.5-pro' },
-  'gemini-flash':     { provider: 'google',    targetModel: 'gemini-2.5-flash' },
-  'gemini-pro':       { provider: 'google',    targetModel: 'gemini-2.5-pro' },
+  // Google retired the 2.5 models for new API keys, so these ids now point at current models.
+  'gemini-2.5-flash': { provider: 'google',    targetModel: 'gemini-3.5-flash' },
+  'gemini-2.5-pro':   { provider: 'google',    targetModel: 'gemini-pro-latest' },
+  'gemini-flash':     { provider: 'google',    targetModel: 'gemini-3.5-flash' },
+  'gemini-pro':       { provider: 'google',    targetModel: 'gemini-pro-latest' },
 };
 
 export function resolveProviderKeys(apiKeys: any = {}) {
@@ -123,7 +124,7 @@ export async function streamWithProvider(
     }
   }
   if (googleKey) {
-    return await streamGoogleGemini(googleKey, 'gemini-2.5-flash', prompt, history as any);
+    return await streamGoogleGemini(googleKey, 'gemini-3.5-flash', prompt, history as any);
   }
   if (openaiKey) {
     if (isAzureKey) {

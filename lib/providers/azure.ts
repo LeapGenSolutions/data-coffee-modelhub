@@ -48,7 +48,7 @@ export async function streamAzureOpenAI(
         ).trim();
 
         if (resolvedGoogleKey) {
-          return await streamGoogleGemini(resolvedGoogleKey, 'gemini-2.5-flash', prompt, history);
+          return await streamGoogleGemini(resolvedGoogleKey, 'gemini-3.5-flash', prompt, history);
         }
         return createErrorStream(
           '⚠️ **Azure OpenAI deployment not found** and no Gemini fallback key configured.',

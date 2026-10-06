@@ -20,6 +20,9 @@ export function createErrorStream(errorMessage: string, status = 502): Response 
   });
 }
 
+// Tried in order when the requested model is overloaded (503) or out of quota (429)
+const FLASH_FALLBACKS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash'];
+
 // Cache discovered models for 1 hour to eliminate 200-500ms TTFT latency on repeated calls
 const modelsCache = new Map<string, { models: string[]; timestamp: number }>();
 const CACHE_TTL_MS = 60 * 60 * 1000;
@@ -60,13 +63,13 @@ export async function streamGoogleGemini(
     if (available.length > 0) {
       if (available.includes(requestedModel)) {
         activeModel = requestedModel;
-      } else if (available.includes('gemini-2.5-flash')) {
-        activeModel = 'gemini-2.5-flash';
-      } else if (available.includes('gemini-2.0-flash')) {
-        activeModel = 'gemini-2.0-flash';
+      } else if (available.includes('gemini-3.5-flash')) {
+        activeModel = 'gemini-3.5-flash';
+      } else if (available.includes('gemini-3.8-flash')) {
+        activeModel = 'gemini-3.8-flash';
       } else {
         const match =
-          available.find((m) => m === 'gemini-2.5-flash' || m === 'gemini-2.0-flash') ||
+          available.find((m) => m === 'gemini-3.5-flash' || m === 'gemini-3.8-flash') ||
           available.find((m) => m.includes('flash') && !m.includes('tts') && !m.includes('preview')) ||
           available.find((m) => m.includes('gemini')) ||
           available[0];
@@ -74,7 +77,7 @@ export async function streamGoogleGemini(
       }
     }
   } catch {
-    activeModel = requestedModel || 'gemini-2.5-flash';
+    activeModel = requestedModel || 'gemini-3.5-flash';
   }
 
   // Step 2: Stream content
@@ -103,8 +106,11 @@ export async function streamGoogleGemini(
       body: requestBody,
     });
 
-    if (res.status === 503 && activeModel !== 'gemini-2.5-flash-lite') {
-      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:streamGenerateContent?alt=sse&key=${apiKey}`;
+    // Overloaded (503) or out of quota (429): each model has its own quota, so try the next Flash model
+    for (const fallbackModel of FLASH_FALLBACKS) {
+      if (res.status !== 503 && res.status !== 429) break;
+      if (fallbackModel === activeModel) continue;
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
       res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
