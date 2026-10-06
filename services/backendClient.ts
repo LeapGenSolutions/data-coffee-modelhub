@@ -92,7 +92,7 @@ export interface BackendUserHistoryRecord {
   input_tokens: number;
   output_tokens: number;
   credits_used: number;
-  status: 'SUCCESS' | 'FAILED';
+  status: 'SUCCESS' | 'FAILED' | 'COMPLETED';
 }
 
 export interface BackendBillingRecord {

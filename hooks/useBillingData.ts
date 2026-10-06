@@ -5,7 +5,7 @@ import { fetchUsageHistory, fetchRechargeHistory, rechargeCredits } from '../ser
 export function useUsageHistory() {
   return useQuery<UsageRecord[]>({
     queryKey: ['billing', 'usageHistory'],
-    queryFn: fetchUsageHistory,
+    queryFn: () => fetchUsageHistory(),
   });
 }
 

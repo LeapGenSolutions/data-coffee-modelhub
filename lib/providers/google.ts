@@ -138,6 +138,7 @@ export async function streamGoogleGemini(
                 const jsonStr = line.slice(6).trim();
                 if (jsonStr) {
                   try {
+                    const parsed = JSON.parse(jsonStr);
                     const parts = parsed.candidates?.[0]?.content?.parts;
                     if (Array.isArray(parts)) {
                       for (const part of parts) {

@@ -20,10 +20,8 @@ export async function fetchModels(): Promise<AIModel[]> {
         id: m.id || m.model_name.toLowerCase().replace(/\s+/g, '-'),
         name: m.model_name,
         provider: m.provider as any,
-        badge: m.scope || 'Cloud',
-        avatarBg: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-        contextLimit: '128k',
-        description: m.description || `Enterprise ${m.provider} model managed via Cosmos DB`,
+        color: '#10B981',
+        desc: m.description || `Enterprise ${m.provider} model managed via Cosmos DB`,
       }));
     }
   } catch {
@@ -141,11 +139,15 @@ export async function fetchWorkspaces(): Promise<Workspace[]> {
         id: w.id,
         name: w.name || w.workspace_name,
         description: w.description || 'Enterprise Workspace',
-        plan: w.plan || 'Team',
+        tokens: w.tokens || 0,
+        credits: w.credits || 0,
+        chats: w.chats || [],
         members: (w.members || []).map((m: any) => ({
+          initials: (m.name || m.email || 'U').slice(0, 2).toUpperCase(),
           name: m.name || m.email,
-          role: m.role || 'Member',
-          avatar: (m.name || m.email || 'U').slice(0, 2).toUpperCase(),
+          role: m.role || 'Viewer',
+          color: '#3B4A6B',
+          email: m.email,
         })),
         documents: (w.documents || []).map((d: any) => ({
           name: d.name,
@@ -174,7 +176,7 @@ export async function fetchUsageHistory(userId = 'user_alex'): Promise<UsageReco
 
         return {
           id: r.id || `u_${i}`,
-          date: new Date(r.timestamp).toLocaleDateString('en-US', {
+          date: new Date(r.timestamp ?? Date.now()).toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
             year: 'numeric',
